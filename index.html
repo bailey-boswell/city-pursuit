@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>City Pursuit: Neon District</title>
+<style>
+:root{color-scheme:dark;--glass:rgba(8,15,28,.78);--line:rgba(255,255,255,.17)}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111a28;font-family:system-ui,-apple-system,Segoe UI,sans-serif;touch-action:none}
+#game{position:fixed;inset:0}canvas{display:block;width:100%;height:100%}
+#hud{position:fixed;inset:0;pointer-events:none;color:white;text-shadow:0 2px 5px #0008}
+.panel{background:var(--glass);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(8px);padding:10px 13px}
+#topbar{position:absolute;left:12px;right:12px;top:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+#brand{font-weight:900;letter-spacing:.12em;font-size:12px;color:#a8d8ff}
+#speedWrap{min-width:116px;text-align:right}
+#speed{font-size:32px;font-weight:850;line-height:1}
+#unit{font-size:10px;letter-spacing:.16em;color:#c8d7e8}
+#mission{position:absolute;top:92px;left:12px;max-width:235px;font-size:12px;line-height:1.4}
+#mission strong{color:#ffd56a;display:block;font-size:11px;letter-spacing:.1em;margin-bottom:3px}
+#cash{font-size:13px;font-weight:800}
+#wanted{display:flex;gap:4px;margin-top:5px}
+.star{font-size:15px;color:#586477}.star.on{color:#ffd45b}
+#toast{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);font-size:clamp(16px,4vw,26px);font-weight:900;text-align:center;opacity:0;transition:opacity .2s;background:#09111dcc;border:1px solid #ffffff30;border-radius:14px;padding:13px 20px;max-width:85vw}
+#bottom{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+#hint{font-size:10px;color:#d0dbea;max-width:190px}
+#buttons{display:flex;gap:8px;pointer-events:auto}
+.uiBtn{border:1px solid #ffffff3a;background:#0a1425df;color:white;border-radius:12px;padding:10px 12px;font-weight:750;font-size:12px}
+#touchControls{position:absolute;left:12px;right:12px;bottom:85px;display:flex;justify-content:space-between;align-items:end;pointer-events:none}
+.pad{display:flex;gap:8px;pointer-events:auto}
+.control{width:clamp(56px,16vw,76px);height:clamp(56px,16vw,76px);border-radius:50%;border:1px solid #ffffff55;background:#101d32b8;color:#fff;font-size:23px;font-weight:800;touch-action:none;user-select:none}
+.control.gas{background:#177d69b8}.control.brake{background:#9b3e4ab8}
+#startScreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:22px;background:linear-gradient(135deg,#06101bd9,#101c2bd9);color:white;z-index:5}
+#startCard{width:min(480px,100%);border:1px solid #ffffff24;border-radius:22px;padding:25px;background:#0b1525eF;box-shadow:0 25px 80px #0008}
+h1{font-size:clamp(28px,8vw,46px);line-height:.98;margin:10px 0 12px;letter-spacing:-.04em}
+.sub{color:#c3d1e2;line-height:1.55;font-size:14px}
+select{width:100%;padding:12px;border-radius:10px;border:1px solid #ffffff30;background:#142238;color:white;margin:8px 0 14px;font-size:14px}
+.primary{width:100%;padding:14px;border:0;border-radius:12px;background:#55d6b0;color:#041a19;font-size:15px;font-weight:900}
+.small{font-size:11px;color:#95a8bd;margin-top:13px;line-height:1.5}
+@media(min-width:760px){#touchControls{bottom:22px}#bottom{bottom:18px}#mission{top:100px}}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud">
+ <div id="topbar">
+  <div class="panel">
+   <div id="brand">CITY PURSUIT <span style="color:#ffca68;font-size:9px">/ NEON DISTRICT</span></div>
+   <div id="cash">$ <span id="money">2500</span></div>
+   <div id="wanted"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
+  </div>
+  <div class="panel" id="speedWrap"><div id="speed">000</div><div id="unit">KM/H</div></div>
+ </div>
+ <div class="panel" id="mission"><strong>OBJECTIVE</strong><span id="objective">Drive around the city. Keep an eye out for patrols.</span></div>
+ <div id="toast"></div>
+ <div id="touchControls">
+  <div class="pad"><button class="control" data-control="left" aria-label="Steer left">◀</button><button class="control" data-control="right" aria-label="Steer right">▶</button></div>
+  <div class="pad"><button class="control brake" data-control="brake" aria-label="Brake">▼</button><button class="control gas" data-control="gas" aria-label="Accelerate">▲</button></div>
+ </div>
+ <div id="bottom">
+  <div class="panel" id="hint">Touch controls or WASD / arrow keys<br>Space = handbrake · C = change car</div>
+  <div id="buttons"><button class="uiBtn" id="carBtn">GARAGE</button><button class="uiBtn" id="upgradeBtn">UPGRADES</button><button class="uiBtn" id="resetBtn">RESET</button></div>
+ </div>
+</div>
+<div id="startScreen">
+ <div id="startCard">
+  <div style="font-weight:900;color:#65e0bd;letter-spacing:.18em;font-size:11px">OPEN WORLD · POLICE PURSUIT</div>
+  <h1 style="font-size:clamp(40px,11vw,68px);margin:14px 0">CITY<br><span style="color:#65e0bd">PURSUIT</span><span style="color:#ffca68">.</span></h1>
+  <p class="sub">Welcome to Neon District. Explore a sprawling city, outrun the cops, build your garage and become king of the streets.</p>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:14px 0"><div class="panel"><b>06</b><div class="small">VEHICLES</div></div><div class="panel"><b>OPEN</b><div class="small">CITY MAP</div></div><div class="panel"><b>CHASE</b><div class="small">POLICE AI</div></div></div>
+  <label for="vehicle" style="font-size:12px;font-weight:800">STARTING VEHICLE</label>
+  <select id="vehicle"><option value="sport">Sport coupe · FREE</option><option value="suv">Street SUV · FREE</option><option value="super">Supercar · $6,500</option><option value="muscle">Muscle GT · $4,200</option><option value="hyper">Hyper Sport · $14,000</option><option value="rally">Rally X · $3,200</option></select>
+  <button class="primary" id="playBtn">▶ ENTER THE CITY</button>
+  <div class="small">Missions and rewards · Buy cars and performance upgrades · Progress saves on this device. Internet required for 3D graphics.</div>
+ </div>
+</div>
+<div id="garage" class="overlay"><div class="modal"><div class="modalHead"><div><div class="tag">YOUR COLLECTION</div><h2>THE GARAGE</h2></div><button class="uiBtn" id="garageClose">✕</button></div><div id="garageList" class="garageGrid"></div><p class="small">Buy rides with cash earned in the city. Cars stay unlocked on this device.</p></div></div>
+<div id="upgradePanel" class="overlay"><div class="modal"><div class="modalHead"><div><div class="tag">TUNE YOUR RIDE</div><h2>PERFORMANCE LAB</h2></div><button class="uiBtn" id="upgradeClose">✕</button></div><div class="upgradeRow"><div><b>ENGINE TUNING</b><small>Higher top speed · 3 levels</small></div><button class="uiBtn" data-upgrade="engine" data-cost="900">BUY · $900</button></div><div class="upgradeRow"><div><b>RACE SUSPENSION</b><small>Sharper handling · 3 levels</small></div><button class="uiBtn" data-upgrade="handling" data-cost="700">BUY · $700</button></div><div class="upgradeRow"><div><b>NITRO KIT</b><small>Boost kit · 3 levels</small></div><button class="uiBtn" data-upgrade="nitro" data-cost="1200">BUY · $1,200</button></div><p class="small">Engine and handling improvements affect your current ride.</p></div></div>
+<style>.overlay{position:fixed;inset:0;z-index:8;display:none;align-items:center;justify-content:center;padding:16px;background:#020712df;backdrop-filter:blur(10px);color:#fff}.modal{width:min(520px,100%);max-height:88vh;overflow:auto;background:linear-gradient(145deg,#13253a,#07101e);border:1px solid #74dfff45;border-radius:20px;padding:18px;box-shadow:0 20px 80px #000a}.modalHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.modal h2{margin:5px 0;font-size:25px}.garageGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.garageItem{background:#14243a;border:1px solid #ffffff20;border-radius:13px;padding:14px 10px;color:#fff;text-align:left;min-height:92px}.garageItem b,.garageItem small{display:block}.garageItem small,.upgradeRow small{font-size:10px;color:#aabdd0;margin-top:5px}.upgradeRow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 0;border-bottom:1px solid #ffffff20}.upgradeRow b,.upgradeRow small{display:block}.upgradeRow button{white-space:nowrap}@media(max-width:420px){#buttons{gap:4px}.uiBtn{padding:9px 8px;font-size:10px}#hint{max-width:125px;font-size:9px}}</style>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const container=document.querySelector('#game');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x7d9eb9);
+scene.fog=new THREE.Fog(0x7d9eb9,150,510);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,550);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+container.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xd9edff,0x47515a,2.0));
+const sun=new THREE.DirectionalLight(0xffe5c0,2.6);sun.position.set(-50,120,35);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-100;sun.shadow.camera.right=100;sun.shadow.camera.top=100;sun.shadow.camera.bottom=-100;scene.add(sun);
+const mat=(color,roughness=.86,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
+const grassMat=mat(0x465d55),roadMat=mat(0x252d39),lineMat=mat(0xf3dba0),sideMat=mat(0x969ba0);
+const buildingMats=[0x7c8d9b,0xc5b7a5,0x879fa8,0x68788b,0xd2c9b6,0x536575,0x9d8d83,0x667e79].map(c=>mat(c));
+const windowMat=mat(0x9bdcff,.35,.3),darkWindow=mat(0x293f51,.5,.15);
+function box(parent,w,h,d,material,x,y,z){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y,z);parent.add(m);return m}
+function cylinder(parent,r1,r2,h,material,x,y,z,segments=10){const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,segments),material);m.position.set(x,y,z);parent.add(m);return m}
+
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(800,800),grassMat);ground.rotation.x=-Math.PI/2;ground.position.y=-.16;scene.add(ground);
+// City grid, roads and sidewalks
+const ROAD=15, BLOCK=34, PERIOD=ROAD+BLOCK, LIMIT=330;
+for(let k=-9;k<=9;k++){
+ const p=k*PERIOD;
+ const roadV=new THREE.Mesh(new THREE.PlaneGeometry(ROAD,760),roadMat);roadV.rotation.x=-Math.PI/2;roadV.position.set(p,.005,0);scene.add(roadV);
+ const roadH=new THREE.Mesh(new THREE.PlaneGeometry(760,ROAD),roadMat);roadH.rotation.x=-Math.PI/2;roadH.position.set(0,.008,p);scene.add(roadH);
+ for(let t=-370;t<=370;t+=8){
+  box(scene,.16,.025,3.4,lineMat,p,.035,t);
+  box(scene,3.4,.025,.16,lineMat,t,.036,p);
+ }
+}
+// buildings arranged on blocks, leaving road clear
+let seed=32145;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
+for(let gx=-8;gx<=8;gx++)for(let gz=-8;gz<=8;gz++){
+ const cx=gx*PERIOD+(ROAD/2+BLOCK/2),cz=gz*PERIOD+(ROAD/2+BLOCK/2);
+ if(Math.abs(cx)>LIMIT||Math.abs(cz)>LIMIT)continue;
+ const count=2+Math.floor(rand()*4);
+ for(let i=0;i<count;i++){
+  const w=4+rand()*8,d=4+rand()*8,h=8+rand()*70;
+  const x=cx+(rand()-.5)*(BLOCK-11),z=cz+(rand()-.5)*(BLOCK-11);
+  const b=box(scene,w,h,d,buildingMats[Math.floor(rand()*buildingMats.length)],x,h/2,z);b.castShadow=true;b.receiveShadow=true;
+  // front-facing window strips
+  const floors=Math.floor(h/3.8),cols=Math.max(1,Math.floor(w/2.2));
+  for(let f=0;f<floors;f++)for(let c=0;c<cols;c++){
+   const wx=x-w/2+(c+.5)*w/cols,wy=2+f*3.8;
+   box(scene,.65,1.15,.055,rand()>.2?windowMat:darkWindow,wx,wy,z+d/2+.035);
+  }
+  // rooftop blocks add skyline detail
+  if(h>28)box(scene,w*.35,1.3,d*.35,buildingMats[(Math.floor(rand()*buildingMats.length))],x,h+.65,z);
+ }
+}
+// Street lamps, trees and simple traffic posts
+const poleMat=mat(0x3c454a,.7,.4),leafMat=mat(0x426e55);
+for(let road=-8;road<=8;road++)for(let s=-8;s<=8;s+=2){
+ const x=road*PERIOD+ROAD/2+1.2,z=s*PERIOD+ROAD/2+1.2;
+ cylinder(scene,.09,.12,4.1,poleMat,x,2,z,7);box(scene,1.1,.12,.12,poleMat,x+.42,4,z);
+ box(scene,.48,.12,.34,mat(0xffe7a6),x+.86,3.92,z);
+ if((road+s)%3===0){cylinder(scene,.1,.13,2,poleMat,x+2,1,z+2,7);const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(1.15,0),leafMat);crown.position.set(x+2,2.5,z+2);scene.add(crown)}
+}
+// Car builder
+const carSpecs={
+ sport:{name:'SPORT COUPE',color:0x21a6ce,max:48,accel:23,turn:1.75,scale:1,price:0},
+ suv:{name:'STREET SUV',color:0xd9dce2,max:39,accel:17,turn:1.45,scale:1.12,price:0},
+ super:{name:'SUPERCAR',color:0xf04d45,max:58,accel:27,turn:1.9,scale:.94,price:6500},
+ muscle:{name:'MUSCLE GT',color:0xffa629,max:51,accel:26,turn:1.5,scale:1.08,price:4200},
+ hyper:{name:'HYPER SPORT',color:0xb66cff,max:66,accel:30,turn:2.0,scale:.91,price:14000},
+ rally:{name:'RALLY X',color:0x8ee06d,max:46,accel:22,turn:2.1,scale:1.02,price:3200}
+};
+function makeCar(type,police=false){
+ const spec=carSpecs[type]||carSpecs.sport,s=spec.scale;
+ const root=new THREE.Group(),paint=mat(police?0xe6e9ee:spec.color,.28,.35),glass=mat(0x142a3b,.18,.25),rubber=mat(0x11151a),rim=mat(0xb7cbd6,.22,.7);
+ box(root,2*s,.65*s,4*s,paint,0,.72*s,0);
+ box(root,1.65*s,.62*s,1.9*s,paint,0,1.29*s,-.18*s);
+ box(root,1.48*s,.46*s,1.55*s,glass,0,1.34*s,-.17*s);
+ box(root,.46*s,.11*s,.12*s,mat(0xf9f0d2),-.64*s,.8*s,2.01*s);
+ box(root,.46*s,.11*s,.12*s,mat(0xf9f0d2),.64*s,.8*s,2.01*s);
+ box(root,.38*s,.12*s,.12*s,mat(0xf33c35),-.65*s,.8*s,-2.01*s);
+ box(root,.38*s,.12*s,.12*s,mat(0xf33c35),.65*s,.8*s,-2.01*s);
+ for(const x of [-.98,.98])for(const z of [-1.32,1.32]){
+  const wheel=cylinder(root,.43*s,.43*s,.24*s,rubber,x,.43*s,z,12);wheel.rotation.z=Math.PI/2;
+  const hub=cylinder(root,.22*s,.22*s,.255*s,rim,x,.43*s,z,10);hub.rotation.z=Math.PI/2;
+ }
+ if(police){
+  box(root,1.25*s,.16*s,.3*s,mat(0x252a35),0,1.67*s,-.18*s);
+  const red=mat(0xff3038),blue=mat(0x2b83ff);
+  box(root,.4*s,.16*s,.22*s,red,-.32*s,1.79*s,-.18*s);
+  box(root,.4*s,.16*s,.22*s,blue,.32*s,1.79*s,-.18*s);
+  box(root,1.5*s,.12*s,.09*s,mat(0x1d2730),0,.94*s,2.04*s);
+ }
+ root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});root.userData={type,police,wheels:[]};return root;
+}
+let currentType='sport',player=makeCar(currentType);scene.add(player);
+const missionCheckpoint=new THREE.Mesh(new THREE.TorusGeometry(4,.22,8,28),new THREE.MeshStandardMaterial({color:0x55ffe0,emissive:0x13d9bd,emissiveIntensity:2}));missionCheckpoint.rotation.x=Math.PI/2;missionCheckpoint.position.set(0,.25,75);scene.add(missionCheckpoint);
+const policeCars=[];
+function spawnPolice(x,z){const p=makeCar('suv',true);p.position.set(x,.02,z);scene.add(p);policeCars.push({mesh:p,speed:0,phase:rand()*5});}
+spawnPolice(12,30);spawnPolice(-22,-28);
+const traffic=[];
+for(let i=0;i<20;i++){
+ const type=['sport','suv','super'][i%3],m=makeCar(type);m.position.set((i%2?1:-1)*6,.02,-80+i*19);m.rotation.y=i%2?Math.PI:0;scene.add(m);traffic.push({mesh:m,dir:i%2?1:-1,speed:5+rand()*7,axis:'z'});
+}
+const cameraTarget=new THREE.Vector3(),desiredCamera=new THREE.Vector3();
+let speed=0,heading=0,money=Number(localStorage.getItem('cp_money')||2500),wanted=1,started=false,elapsed=0,lastTime=0,toastTimer=0,brakeFlash=0;
+let upgrades={engine:0,handling:0,nitro:0};let missionIndex=0,missionProgress=0;const missions=[{name:'FIRST DELIVERY',desc:'Reach the glowing checkpoint',reward:750},{name:'STREET SPRINT',desc:'Hit 120 km/h',reward:1000},{name:'CLEAN GETAWAY',desc:'Stay ahead of the police',reward:1250},{name:'NEAR-MISS PRO',desc:'Pull off 5 close traffic passes',reward:900}];
+let cashTimer=0,policeTimer=0,nearMissTimer=0,handbrake=false;
+const keys={};const controls={left:false,right:false,gas:false,brake:false};
+function setCar(type){
+ scene.remove(player);currentType=type;player=makeCar(type);player.position.set(0,.02,0);player.rotation.y=heading;scene.add(player);
+ speed=0;showToast(carSpecs[type].name);
+}
+function showToast(text){const el=document.querySelector('#toast');el.textContent=text;el.style.opacity=1;toastTimer=1.8}
+function updateStars(){document.querySelectorAll('.star').forEach((s,i)=>s.classList.toggle('on',i<wanted));}
+function setWanted(n){wanted=Math.max(1,Math.min(5,n));updateStars()}
+function reset(){player.position.set(0,.02,0);heading=0;speed=0;setWanted(1);document.querySelector('#money').textContent=money;showToast('VEHICLE RESET');}
+function completeMission(){const m=missions[missionIndex];if(!m)return;money+=m.reward;showToast(m.name+' COMPLETE +$'+m.reward);missionIndex=(missionIndex+1)%missions.length;missionProgress=0;localStorage.setItem('cp_money',String(Math.floor(money)));if(missionIndex===0)missionCheckpoint.position.set((rand()-.5)*250,.25,(rand()-.5)*250)}
+function openGarage(){document.querySelector('#garage').style.display='flex';refreshGarage()}
+function refreshGarage(){const list=document.querySelector('#garageList');list.innerHTML='';Object.entries(carSpecs).forEach(([id,c])=>{const owned=c.price===0||localStorage.getItem('cp_owned_'+id)==='1';const b=document.createElement('button');b.className='garageItem';b.innerHTML=`<span style="display:block;color:#${c.color.toString(16).padStart(6,'0')};font-size:18px">▰</span><b>${c.name}</b><small>${Math.round(c.max*3.6)} KM/H · ${owned?'OWNED':'$'+c.price}</small>`;b.onclick=()=>{if(!owned){if(money<c.price){showToast('NOT ENOUGH CASH');return}money-=c.price;localStorage.setItem('cp_owned_'+id,'1')}setCar(id);document.querySelector('#garage').style.display='none'};list.appendChild(b)})}
+function buyUpgrade(key,cost){if(money<cost){showToast('NOT ENOUGH CASH');return}if(upgrades[key]>=3){showToast('UPGRADE MAXED');return}money-=cost;upgrades[key]++;localStorage.setItem('cp_money',String(Math.floor(money)));document.querySelector('#money').textContent=Math.floor(money);showToast(key.toUpperCase()+' UPGRADED · LV '+upgrades[key])}
+function nearestRoad(v){return Math.round(v/PERIOD)*PERIOD}
+const clock=new THREE.Clock();
+function update(dt){
+ elapsed+=dt;const spec=carSpecs[currentType];
+ missionCheckpoint.rotation.z+=dt*.65;const forward=(keys.ArrowUp||keys.KeyW||controls.gas)?1:0;
+ const backward=(keys.ArrowDown||keys.KeyS||controls.brake)?1:0;
+ const left=keys.ArrowLeft||keys.KeyA||controls.left,right=keys.ArrowRight||keys.KeyD||controls.right;
+ const hand=keys.Space||handbrake;
+ const target=forward?(spec.max+upgrades.engine*5+(keys.ShiftLeft?10:0)):backward?-spec.max*.34:0;
+ const rate=forward?spec.accel:backward?spec.accel*1.4:(hand?35:8);
+ speed+=THREE.MathUtils.clamp(target-speed,-rate*dt,rate*dt);
+ if(hand)speed*=Math.max(0,1-dt*1.7);
+ const steer=(left?1:0)-(right?1:0);
+ const steerPower=(.18+Math.min(Math.abs(speed)/spec.max,1))*spec.turn*(1+upgrades.handling*.13);
+ heading+=steer*steerPower*dt*Math.sign(speed||1);
+ player.rotation.y=heading;
+ const old=player.position.clone();
+ player.position.x+=Math.sin(heading)*speed*dt;
+ player.position.z+=Math.cos(heading)*speed*dt;
+ player.position.x=THREE.MathUtils.clamp(player.position.x,-LIMIT,LIMIT);
+ player.position.z=THREE.MathUtils.clamp(player.position.z,-LIMIT,LIMIT);
+ // Soft collision against buildings/blocks: buildings are placed away from streets, plus map boundaries.
+ if(Math.abs(speed)>3){
+  // reward near-miss driving around traffic
+  for(const t of traffic){
+   if(player.position.distanceTo(t.mesh.position)<2.5 && nearMissTimer<=0){
+    money+=25;missionProgress++;nearMissTimer=1.5;showToast('NEAR MISS  +$25');
+   }
+  }
+ }
+ nearMissTimer=Math.max(0,nearMissTimer-dt);
+ // Keep the city feeling alive with looping traffic
+ for(const t of traffic){
+  t.mesh.position.z+=t.dir*t.speed*dt;
+  if(t.mesh.position.z>130)t.mesh.position.z=-130;
+  if(t.mesh.position.z<-130)t.mesh.position.z=130;
+ }
+ // Police chase AI follows the player with a little spacing and pursuit wobble
+ policeTimer+=dt;
+ for(let i=0;i<policeCars.length;i++){
+  const p=policeCars[i],m=p.mesh;
+  const dx=player.position.x-m.position.x,dz=player.position.z-m.position.z;
+  const dist=Math.hypot(dx,dz);
+  const aim=Math.atan2(dx,dz);
+  let delta=Math.atan2(Math.sin(aim-m.rotation.y),Math.cos(aim-m.rotation.y));
+  m.rotation.y+=THREE.MathUtils.clamp(delta,-1.8*dt,1.8*dt);
+  const chasing=dist>5;
+  p.speed=THREE.MathUtils.lerp(p.speed,chasing?(15+wanted*1.9):0,Math.min(1,dt*1.5));
+  m.position.x+=Math.sin(m.rotation.y)*p.speed*dt;
+  m.position.z+=Math.cos(m.rotation.y)*p.speed*dt;
+  if(dist<4.1){
+   speed*=Math.max(0,1-dt*1.9);
+   if(policeTimer>2.8){money=Math.max(0,money-100);policeTimer=0;showToast('POLICE BUMP  −$100')}
+  }
+  // If police fall far behind, reposition them nearby rather than disappear
+  if(dist>175){m.position.set(player.position.x+(i?13:-13),.02,player.position.z-35-i*10);m.rotation.y=heading+Math.PI}
+ }
+ if(policeTimer>42 && wanted<5){setWanted(wanted+1);policeTimer=0;showToast('WANTED LEVEL INCREASED')}
+ cashTimer+=dt;
+ if(cashTimer>12){cashTimer=0;money+=50;showToast('CRUISING BONUS  +$50')}
+ if(missionIndex===1&&Math.abs(speed)*3.6>=120)completeMission();if(missionIndex===2&&elapsed%50<dt&&wanted<3)completeMission();if(missionIndex===3&&missionProgress>=5)completeMission();
+ const cp=missionCheckpoint;if(missionIndex===0&&Math.hypot(player.position.x-cp.position.x,player.position.z-cp.position.z)<8)completeMission();localStorage.setItem('cp_money',String(Math.floor(money)));
+ // Chase camera, smooth and elevated
+ desiredCamera.set(player.position.x-Math.sin(heading)*10,player.position.y+6.1,player.position.z-Math.cos(heading)*10);
+ camera.position.lerp(desiredCamera,1-Math.exp(-4.3*dt));
+ cameraTarget.set(player.position.x,player.position.y+1.1,player.position.z+Math.cos(heading)*5);
+ camera.lookAt(cameraTarget);
+ document.querySelector('#speed').textContent=String(Math.round(Math.abs(speed)*3.6)).padStart(3,'0');
+ document.querySelector('#money').textContent=Math.floor(money).toLocaleString('en-GB');
+ const obj=document.querySelector('#objective');
+ obj.textContent=missions[missionIndex]?.desc||(wanted>=4?'HIGH ALERT: keep moving and avoid police contact.':'Cruise to earn cash. Near misses pay $25; stay clear of police.');
+ if(toastTimer>0){toastTimer-=dt;if(toastTimer<=0)document.querySelector('#toast').style.opacity=0}
+}
+function animate(now){
+ requestAnimationFrame(animate);
+ const dt=Math.min(.04,(now-lastTime)/1000||0);lastTime=now;
+ if(started)update(dt);
+ renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+function start(){started=true;document.querySelector('#startScreen').style.display='none';showToast('GO! DRIVE SAFE.')}
+document.querySelector('#playBtn').addEventListener('click',()=>{let type=document.querySelector('#vehicle').value;const c=carSpecs[type];if(c.price>0&&localStorage.getItem('cp_owned_'+type)!=='1'){if(money<c.price){showToast('NOT ENOUGH CASH — START WITH A FREE CAR');type='sport'}else{money-=c.price;localStorage.setItem('cp_owned_'+type,'1')}}setCar(type);start()});
+document.querySelector('#carBtn').addEventListener('click',openGarage);document.querySelector('#garageClose').addEventListener('click',()=>document.querySelector('#garage').style.display='none');document.querySelector('#upgradeBtn').addEventListener('click',()=>document.querySelector('#upgradePanel').style.display='flex');document.querySelector('#upgradeClose').addEventListener('click',()=>document.querySelector('#upgradePanel').style.display='none');document.querySelectorAll('[data-upgrade]').forEach(b=>b.addEventListener('click',()=>buyUpgrade(b.dataset.upgrade,Number(b.dataset.cost))));
+document.querySelector('#resetBtn').addEventListener('click',reset);
+addEventListener('keydown',e=>{keys[e.code]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='KeyC')document.querySelector('#carBtn').click();if(e.code==='Enter'&&!started)start()},{passive:false});
+addEventListener('keyup',e=>{keys[e.code]=false});
+document.querySelectorAll('[data-control]').forEach(btn=>{
+ const name=btn.dataset.control;
+ const down=e=>{e.preventDefault();controls[name]=true;btn.style.transform='scale(.94)';try{btn.setPointerCapture(e.pointerId)}catch(_){}};
+ const up=e=>{e.preventDefault();controls[name]=false;btn.style.transform=''};
+ btn.addEventListener('pointerdown',down);btn.addEventListener('pointerup',up);btn.addEventListener('pointercancel',up);btn.addEventListener('lostpointercapture',up);
+});
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.setSize(innerWidth,innerHeight)});
+camera.position.set(0,8,-13);camera.lookAt(0,0,10);
+</script>
+</body>
+</html>
